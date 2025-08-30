@@ -12,7 +12,7 @@ import os
 import pandas as pd
 from tqdm import tqdm
 import yfinance as yf
-from openai import OpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from .config import get_config, set_config, DATA_DIR
 
 
@@ -703,105 +703,29 @@ def get_YFin_data(
 
 
 def get_stock_news_openai(ticker, curr_date):
-    config = get_config()
-    client = OpenAI(base_url=config["backend_url"])
-
-    response = client.responses.create(
-        model=config["quick_think_llm"],
-        input=[
-            {
-                "role": "system",
-                "content": [
-                    {
-                        "type": "input_text",
-                        "text": f"Can you search Social Media for {ticker} from 7 days before {curr_date} to {curr_date}? Make sure you only get the data posted during that period.",
-                    }
-                ],
-            }
-        ],
-        text={"format": {"type": "text"}},
-        reasoning={},
-        tools=[
-            {
-                "type": "web_search_preview",
-                "user_location": {"type": "approximate"},
-                "search_context_size": "low",
-            }
-        ],
-        temperature=1,
-        max_output_tokens=4096,
-        top_p=1,
-        store=True,
-    )
-
-    return response.output[1].content[0].text
+    # Fetch raw news data using your existing Reddit/Google News functions
+    news_data = get_reddit_company_news(ticker, curr_date, 7, 5)
+    # Summarize using LangChain Gemini wrapper
+    llm = ChatGoogleGenerativeAI(model="gemini-pro")
+    prompt = f"Summarize the following social media news for {ticker} from 7 days before {curr_date} to {curr_date}. Focus on trading-relevant insights.\n\n{news_data}"
+    response = llm.invoke(prompt)
+    return response.content if hasattr(response, 'content') else str(response)
 
 
 def get_global_news_openai(curr_date):
-    config = get_config()
-    client = OpenAI(base_url=config["backend_url"])
-
-    response = client.responses.create(
-        model=config["quick_think_llm"],
-        input=[
-            {
-                "role": "system",
-                "content": [
-                    {
-                        "type": "input_text",
-                        "text": f"Can you search global or macroeconomics news from 7 days before {curr_date} to {curr_date} that would be informative for trading purposes? Make sure you only get the data posted during that period.",
-                    }
-                ],
-            }
-        ],
-        text={"format": {"type": "text"}},
-        reasoning={},
-        tools=[
-            {
-                "type": "web_search_preview",
-                "user_location": {"type": "approximate"},
-                "search_context_size": "low",
-            }
-        ],
-        temperature=1,
-        max_output_tokens=4096,
-        top_p=1,
-        store=True,
-    )
-
-    return response.output[1].content[0].text
+    # Fetch raw global news data using your existing Reddit/Google News functions
+    news_data = get_reddit_global_news(curr_date, 7, 5)
+    # Summarize using LangChain Gemini wrapper
+    llm = ChatGoogleGenerativeAI(model="gemini-pro")
+    prompt = f"Summarize the following global/macro news from 7 days before {curr_date} to {curr_date} for trading purposes.\n\n{news_data}"
+    response = llm.invoke(prompt)
+    return response.content if hasattr(response, 'content') else str(response)
 
 
 def get_fundamentals_openai(ticker, curr_date):
-    config = get_config()
-    client = OpenAI(base_url=config["backend_url"])
-
-    response = client.responses.create(
-        model=config["quick_think_llm"],
-        input=[
-            {
-                "role": "system",
-                "content": [
-                    {
-                        "type": "input_text",
-                        "text": f"Can you search Fundamental for discussions on {ticker} during of the month before {curr_date} to the month of {curr_date}. Make sure you only get the data posted during that period. List as a table, with PE/PS/Cash flow/ etc",
-                    }
-                ],
-            }
-        ],
-        text={"format": {"type": "text"}},
-        reasoning={},
-        tools=[
-            {
-                "type": "web_search_preview",
-                "user_location": {"type": "approximate"},
-                "search_context_size": "low",
-            }
-        ],
-        temperature=1,
-        max_output_tokens=4096,
-        top_p=1,
-        store=True,
-    )
-
-    return response.output[1].content[0].text
+    # Fetch raw fundamentals data using your existing SimFin/Yahoo Finance functions
+    fundamentals_data = get_simfin_income_statements(ticker, "annual", curr_date)
+    llm = ChatGoogleGenerativeAI(model="gemini-pro")
+    prompt = f"Summarize and tabulate the following fundamentals for {ticker} for the month before {curr_date} to the month of {curr_date}. Include PE, PS, Cash flow, etc.\n\n{fundamentals_data}"
+    response = llm.invoke(prompt)
+    return response.content if hasattr(response, 'content') else str(response)

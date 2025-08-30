@@ -5,12 +5,12 @@ Setup script for the TradingAgents package.
 from setuptools import setup, find_packages
 
 setup(
-    name="tradingagents",
+    name="smart trading agent with honeypot",
     version="0.1.0",
-    description="Multi-Agents LLM Financial Trading Framework",
+    description="smart trading agent with honeypot",
     author="TradingAgents Team",
-    author_email="yijia.xiao@cs.ucla.edu",
-    url="https://github.com/TauricResearch",
+    author_email="kushalmandala29@gmail.com",
+    url="",
     packages=find_packages(),
     install_requires=[
         "langchain>=0.1.0",
