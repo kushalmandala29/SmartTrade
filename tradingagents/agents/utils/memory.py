@@ -6,22 +6,41 @@ import os
 load_dotenv()
 class FinancialSituationMemory:
     def __init__(self, name="testing"):
-        
         google_api_key = os.getenv("GOOGLE_API_KEY")
-
         genai.configure(api_key=google_api_key)
         self.embedding_model = "models/embedding-001"
         self.chroma_client = chromadb.Client(Settings(allow_reset=True))
         self.situation_collection = self.chroma_client.create_collection(name=name)
+        self.embedding_cache = {}
+
+    def preprocess_prompt(self, text):
+        # Remove excessive whitespace and boilerplate
+        text = text.strip()
+        # Skip error messages and empty prompts
+        if not text or text.lower().startswith("i am sorry"):
+            return None
+        return text
 
     def get_embedding(self, text):
-        """Get Gemini embedding for a text"""
-        embedding_result = genai.embed_content(
-            model=self.embedding_model,
-            content=text,
-            task_type="retrieval_document"
-        )
-        return embedding_result["embedding"]
+        """Get Gemini embedding for a text, with prompt optimization and caching."""
+        processed = self.preprocess_prompt(text)
+        if processed is None:
+            return None
+        # Optimization: Check cache first
+        if processed in self.embedding_cache:
+            return self.embedding_cache[processed]
+        try:
+            embedding_result = genai.embed_content(
+                model=self.embedding_model,
+                content=processed,
+                task_type="retrieval_document"
+            )
+            embedding = embedding_result["embedding"]
+            self.embedding_cache[processed] = embedding
+            return embedding
+        except Exception as e:
+            print(f"[Prompt Optimization] Gemini embedding error: {e}")
+            return None
 
     def add_situations(self, situations_and_advice):
         """Add financial situations and their corresponding advice. Parameter is a list of tuples (situation, rec)"""
@@ -49,7 +68,9 @@ class FinancialSituationMemory:
     def get_memories(self, current_situation, n_matches=1):
         """Find matching recommendations using Gemini embeddings"""
         query_embedding = self.get_embedding(current_situation)
-
+        if query_embedding is None:
+            print("[Memory] No valid embedding obtained; returning empty memories.")
+            return []
         results = self.situation_collection.query(
             query_embeddings=[query_embedding],
             n_results=n_matches,

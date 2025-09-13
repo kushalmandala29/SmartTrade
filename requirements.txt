@@ -4,6 +4,8 @@ langchain-experimental
 pandas
 yfinance
 praw
+typer
+google.generativeai
 feedparser
 stockstats
 eodhd
